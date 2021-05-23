@@ -23,7 +23,6 @@ max_length_of_trajectory = 500
 MEMORY_CAPACITY = 5000
 BATCH_SIZE = 64
 MAX_EPISODE = 20000
-MODE = 'train'#'train' # or 'test'
 sample_frequency = 256
 log_interval = 50
 test_iteration=10
@@ -83,9 +82,10 @@ class DQN:
         self.epsilon_decay=epsilon_decay    
         self.epsilon_min = epsilon_min     
         self.tau=tau
-        self.num_cos = 10               #分为多少份
-        self.num_sin = 10               
-        self.num_dot = 10 
+        self.replace_target_iter=3  #每隔多少步更新一次target参数
+        # self.num_cos = 10               #分为多少份
+        # self.num_sin = 10               
+        # self.num_dot = 10 
         self.num_actions = 10 
         self.actions = self.toBins(-2.0, 2.0, self.num_actions)    # 可以选择的动作空间  离散化
         #########=============== 状态空间离散化，但实际上DQN的状态空间可以不离散，如果离散的话，取消注释digital、digitize_state相关的函数===========
@@ -155,12 +155,6 @@ class DQN:
         done = torch.FloatTensor(d).to(device)
 
         # compute the target Q value
-# =============================================================================
-#DDQN
-#         target_Q = self.critic_target(next_state)
-#         #target_Q = reward + ((1-done)*GAMMA*target_Q).detach()
-#         target_Q = reward.reshape([64,1]) + ((((1-done)*self.gamma).reshape([64,1]))*target_Q).detach()
-# =============================================================================
         target_Q = self.critic_target(next_state).max(axis=1)[0].reshape([64,1])
         target_Q=reward.reshape([64,1]) + ((((1-done)*self.gamma).reshape([64,1]))*target_Q)
         # get current Q estimate
@@ -175,13 +169,10 @@ class DQN:
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
-
-# =============================================================================
-#DDQN
-#         # update the frozen target models
-#         for param,target_param in zip(self.critic.parameters(),self.critic_target.parameters()):
-#             target_param.data.copy_(self.tau * param.data + (1-self.tau) * target_param.data)
-# =============================================================================
+#       # update the frozen target models
+        if self.num_critic_update_iteration % self.replace_target_iter == 0:
+            for param,target_param in zip(self.critic.parameters(),self.critic_target.parameters()):
+                target_param.data.copy_(param.data)
 
         self.num_critic_update_iteration += 1
 
@@ -211,8 +202,8 @@ def train():
             #下面这两个if语句可以加快训练
             # if done:
             #     reward-=200  #对于一些直接导致最终失败的错误行动，其报酬值要减200
-            if reward >= -0.5:  #竖直时时reward接近0  -10到0
-                reward+=20   #给大一点
+            # if reward >= -0.5:  #竖直时时reward接近0  -10到0
+            #     reward+=20   #给大一点
             #     #print('arrive')
             # # print(action,reward,done,state,next_state)
             ep_r+=reward
@@ -279,42 +270,4 @@ if __name__ == '__main__':
     train()
     #test()
     #run_test()
-    # ep_r=0
-    # env = gym.make('Pendulum-v0')   
-    # #print(env.action_space)
-    # agent = DQN(learning_rate=1e-2)
-    # # with open(os.getcwd()+'/tmp/Pendulum.model', 'rb') as f:
-    # #     agent = pickle.load(f)
-    # action = [0]    #输入格式要求 要是数组
-    # for i in range(MAX_EPISODE):  #训练次数
-    #     state = env.reset()  #状态  cos(theta), sin(theta) , thetadot角速度
-    #     #state = agent.digitize_state(state)  #状态标准化
-    #     for t in count():   #一次训练最大运行次数
-    #         action_index,action[0] = agent.act(state)  #动作 -2到2
-    #         next_state, reward, done, info = env.step(action)   
-    #         #next_state = agent.digitize_state(next_state)
-    #         #下面这两个if语句可以加快训练
-    #         if done:
-    #             reward-=200  #对于一些直接导致最终失败的错误行动，其报酬值要减200
-    #         if reward >= -0.5:  #竖直时时reward接近0  -10到0
-    #             reward+=40   #给大一点
-    #         #     #print('arrive')
-    #         # # print(action,reward,done,state,next_state)
-    #         ep_r+=reward
-    #         agent.replay_buffer.push((state,next_state,action_index,action[0],reward,float(done)))
-    #         #agent.learn(state,action[0],reward,next_state)
-    #         state = next_state
-    #         agent.update()
-    #         if done or t>=max_length_of_trajectory:
-    #             agent.writer.add_scalar('ep_r',ep_r,global_step=i)
-    #             if i % 10 ==0:
-    #                 print('Episode:{}, Return:{:0.2f}, Step:{}'.format(i,ep_r,t))
-    #             ep_r = 0
-    #             break
-    #         # env.render()    # 更新并渲染画面
-    #     if (i+1) % 100 == 0:
-    #             print('Episode:{}, Memory size:{}'.format(i,len(agent.replay_buffer.storage)))
-
-    #     if i % log_interval == 0:
-    #         agent.save()
-
+    
