@@ -136,7 +136,7 @@ class DDPG(object):
             # compute the target Q value
             target_Q = self.critic_target(next_state,self.actor_target(next_state))
             #target_Q = reward + ((1-done)*GAMMA*target_Q).detach()
-            target_Q = reward.reshape([64,1]) + ((((1-done)*GAMMA).reshape([64,1]))*target_Q).detach()
+            target_Q = reward.reshape([BATCH_SIZE,1]) + ((((1-done)*GAMMA).reshape([BATCH_SIZE,1]))*target_Q).detach()
             
             # get current Q estimate
             current_Q = self.critic(state,action)
@@ -244,9 +244,7 @@ def main():
 if __name__ == '__main__':
     main()
 
-###保存模型后再导入接着训练得到的正确率却低的原因是：
-#epsilon = 0.5 * (0.99 ** episode)里面的episode有关，你重新开始的时候，episode从0开始，也就意味着ai在大胆地进行探索
-#注，代码里虽然没有epsilon但是实际上Adam里会用到
+
 
 
 
